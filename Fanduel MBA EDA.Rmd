@@ -45,7 +45,7 @@ We will first explore the univariate distributions of fanduel points, batter and
 
 <h2>Data Prep, Imports and Utility Functions</h2>
 All column histogram code from [Stackoverflow](http://stackoverflow.com/questions/13035834/plot-every-column-in-a-data-frame-as-a-histogram-on-one-page-using-ggplot)
-```{r echo=FALSE, message=FALSE, warning=FALSE, setup}
+```{r echo=FALSE, message=FALSE, warning=FALSE,setup}
 batter_data = read.csv("baseball_batter.csv",stringsAsFactors = FALSE)
 pitcher_data = read.csv("baseball_pitcher.csv",stringsAsFactors = FALSE)
 open_air_stadiums = read.csv("open_air_stadiums.csv")
@@ -67,7 +67,10 @@ multi_hist <- function(data_cols,df){
 }
 
 decode_wg_weather<-function(df){
-  df.OD <-subset(df ,df$stadium %in% open_air_stadiums[,c("Stadium")] & df$wunderground_forecast !="") #Filter player data for only stadiums that are open air only and remove weather rows
+  df.OD <-subset(df ,
+                 df$stadium %in% open_air_stadiums[,c("Stadium")] &
+                   df$wunderground_forecast !="") 
+  #Filter player data for only stadiums that are open air only and remove weather rows
   vals <- lapply(df.OD$wunderground_forecast,fromJSON)
   #Transform decoded json vals into dataframe with select fields
   res <- do.call(rbind, 
@@ -96,7 +99,7 @@ summary(pitcher_data$FD_points)
 cat("Standard Deviation = ", sd(pitcher_data$FD_points))
 ```
 
-For batters, the distribution of FD_points seems to follow a decaying distribution, while pitchers FD_points seem to be somewhat normally distributed with a longer positive tail.This right-side-scew in the batters distribution is quantified with the large distance betwen the median and 3rd quartiles compared to the 1st quartile. The 1st quartile is only 1/5th of a standard deviation from the median, whereas the 3rd quartile is 1/3rd of a standard deviation from the median. Compared to the more normally distributed pitchers distribution, where the 1st quartile and 3rd quartile are 1/5th and 1/4th of a standard deviation from the median respectively, quantifies it as being closer to a normal distribution with a longer right-side tail.  A repeating pattern in the batter distribution that has a local maximum is likely due to the biases created in the scaling of the batters scoring function. This information might help in deciding to round model outputs to the discrete possible ouputs of the scoring function. For both batters and pitchers, there is a large number of 0 valued FD_points due to the inclusion of players that did not participate in a game. This will need to be considered as the dataset is explored further.
+For batters, the distribution of FD_points seems to follow a decaying distribution, while pitchers FD_points seem to be somewhat normally distributed with a longer positive tail.This right-side-scew in the batters distribution is quantified with the large distance between the median and 3rd quartiles compared to the 1st quartile. The 1st quartile is only 1/5th of a standard deviation from the median, whereas the 3rd quartile is 1/3rd of a standard deviation from the median. Compared to the more normally distributed pitchers distribution, where the 1st quartile and 3rd quartile are 1/5th and 1/4th of a standard deviation from the median respectively, quantifies it as being closer to a normal distribution with a longer right-side tail.  A repeating pattern in the batter distribution that has a local maximum is likely due to the biases created in the scaling of the batters scoring function. This information might help in deciding to round model outputs to the discrete possible ouputs of the scoring function. For both batters and pitchers, there is a large number of 0 valued FD_points due to the inclusion of players that did not participate in a game. This will need to be considered as the dataset is explored further.
 
 <h2>Batters</h2>
 
@@ -130,7 +133,7 @@ We know that the player statistics included in fanduel's scoring function will h
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, bi_batter}
 ggplot(batter_data, aes(x=rbi, y=FD_points)) +
-    geom_point(shape=1,stat="summary", fun.y = "mean") + # summarize FD_points into mean
+    geom_point(shape=1,stat="summary", fun.y = "mean") +
     geom_smooth(method=lm,   # Add linear regression line
                 se=FALSE)    # Don't add shaded confidence region
 rbi_groups <- group_by(batter_data,rbi)
@@ -155,7 +158,7 @@ The strong linear relationships, with r2's of 0.99 for both rbi and strike_outs 
 
 <h3>Batters</h3>
 
-```{r, echo=FALSE,message=FALSE, warning=FALSE, bi_batter_adv}
+```{r, echo=FALSE,message=FALSE, warning=FALSE, bi_batter_adv,cache=TRUE, cache.path = 'cache/', fig.path='figure/'}
 batter_groups <- group_by(batter_data,name)
 batter_data.adv_stats_mean <- summarize(batter_groups,
                                         obp_mean = mean(obp),
@@ -189,7 +192,7 @@ Cleaning up some of the outliers and applying a regression to the batters slg vs
 
 <h3>Pitchers</h3>
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE, bi_pitcher_adv}
+```{r, echo=FALSE, message=FALSE, warning=FALSE, bi_pitcher_adv,cache=TRUE, cache.path = 'cache/', fig.path='figure/'}
 pitcher_groups <- group_by(pitcher_data,display_name)
 pitcher_data.adv_stats_mean <- summarize(pitcher_groups,
                                         whip_mean = mean(whip),
@@ -210,7 +213,7 @@ As some MLB baseball diamonds are outdoors, the weather may have an impact on pl
 
 
 <h3>Batters</h3>
-```{r echo=FALSE, message=FALSE, warning=FALSE, bi_batter_weather}
+```{r echo=FALSE, message=FALSE, warning=FALSE, bi_batter_weather,cache=TRUE, cache.path = 'cache/', fig.path='figure/'}
 batter_data.OD.decoded = decode_wg_weather(batter_data)
 ggplot(batter_data.OD.decoded, aes(x=temp, y=FD_points)) +
     geom_point(shape=1) +
@@ -218,10 +221,11 @@ ggplot(batter_data.OD.decoded, aes(x=temp, y=FD_points)) +
                 se=FALSE)    
 ```
 
-This plot is clearly not very useful, but does show that the wundeground weather temperature data contains some wonkey data with large negative values seen in the dataset. Cleaning up these outliers and 0 valued temps and moving to box plots:
+This plot is clearly not very useful, but does show that the wundeground weather temperature data contains some wonky data with large negative values seen in the dataset. Cleaning up these outliers and 0 valued temps and moving to box plots:
 
-```{r}
-batter_data.OD.decoded$bin_temp <- cut(batter_data.OD.decoded$temp,c(25,35,45,55,65,75,85,95,105))
+```{r, bi_batter_temp,cache=TRUE, cache.path = 'cache/', fig.path='figure/'}
+batter_data.OD.decoded$bin_temp <- cut(batter_data.OD.decoded$temp,
+                                       c(25,35,45,55,65,75,85,95,105))
 temp_groups <- group_by(batter_data.OD.decoded,bin_temp)
 batter_data.temp_meds <- summarize(temp_groups,
                                    FD_points_median = median(FD_points))
@@ -236,8 +240,9 @@ ggplot(batter_data.OD.decoded, aes(x=bin_temp, y=FD_points)) +
 
 It's difficult to say if temperature has any affect at all on a batters FD points, with median values being quite similar across all temperature bins. There may be a slightly quadratic relationship with the median values being higher at the cold and hot edges of the temperature distribution, but further work will be required to prove if this is useful for the predictive model.
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, bi_batter_humd}
-batter_data.OD.decoded$bin_humd <- cut(batter_data.OD.decoded$humidity,c(0,10,20,30,40,50,60,70,80,90,100))
+```{r echo=FALSE, message=FALSE, warning=FALSE, bi_batter_humd,cache=TRUE, cache.path = 'cache/', fig.path='figure/'}
+batter_data.OD.decoded$bin_humd <- cut(batter_data.OD.decoded$humidity,
+                                       c(0,10,20,30,40,50,60,70,80,90,100))
 humd_groups <- group_by(batter_data.OD.decoded,bin_humd)
 batter_data.humd_meds <- summarize(humd_groups,
                                    FD_points_median = median(FD_points))
@@ -250,13 +255,14 @@ ggplot(batter_data.OD.decoded, aes(x=bin_humd, y=FD_points)) +
             size = 3, vjust = -1.5)
 ```
 
-Again, humidity seems to have very low impact on a batters FD_points with median values being very similiar across all humidity bins and no desernable pattern in the boxplots.
+Again, humidity seems to have very low impact on a batters FD_points with median values being very similar across all humidity bins and no desernable pattern in the boxplots.
 
 <h3>Pitchers</h3>
 Pitchers may be more affected by weather then batters.
-```{r echo=FALSE, message=FALSE, warning=FALSE, bi_pitcher_temp}
+```{r echo=FALSE, message=FALSE, warning=FALSE, bi_pitcher_temp,cache=TRUE, cache.path = 'cache/', fig.path='figure/'}
 pitcher_data.OD.decoded = decode_wg_weather(pitcher_data)
-pitcher_data.OD.decoded$bin_temp <- cut(pitcher_data.OD.decoded$temp,c(25,35,45,55,65,75,85,95,105))
+pitcher_data.OD.decoded$bin_temp <- cut(pitcher_data.OD.decoded$temp,
+                                        c(25,35,45,55,65,75,85,95,105))
 temp_groups <- group_by(pitcher_data.OD.decoded,bin_temp)
 pitcher_data.temp_meds <- summarize(temp_groups,
                                    FD_points_median = median(FD_points))
@@ -271,8 +277,9 @@ ggplot(pitcher_data.OD.decoded, aes(x=bin_temp, y=FD_points)) +
 
 With a median of 2 FD_points for all temp bins, the lack of a clear trend in FD_points vs temp for pitchers matches what was seen for batters and does not seem to be very as a predictive parameter.
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, bi_pitcher_humd}
-pitcher_data.OD.decoded$bin_humd <- cut(pitcher_data.OD.decoded$humidity,c(0,10,20,30,40,50,60,70,80,90,100))
+```{r echo=FALSE, message=FALSE, warning=FALSE, bi_pitcher_humd,cache=TRUE, cache.path = 'cache/', fig.path='figure/'}
+pitcher_data.OD.decoded$bin_humd <- cut(pitcher_data.OD.decoded$humidity,
+                                        c(0,10,20,30,40,50,60,70,80,90,100))
 humd_groups <- group_by(pitcher_data.OD.decoded,bin_humd)
 pitcher_data.humd_meds <- summarize(humd_groups,
                                    FD_points_median = median(FD_points))
@@ -297,14 +304,16 @@ There may exist interactions between parameters that reveal interesting relation
 
 The first multi-variate parameter investigated will be the impact of wind speed and direction on players FD_points. The function wind_spiral_plots is defined to parse the data into 6 windspeed bins, calculate the mean FD_points for each wind_angle per windspeed bin and plots the spiral plot of angle vs mean FD_points for all 6 windspeed bins. There likely exists a more elegant solution then the current functions code, but the functionality is adequate. I'll need to sharpen my R coding skills and come back to refactor this function at a later date. 
 
-```{r}
-#Function to parse dataframe wind data and create spiral plots based on wind angle and FD_points.
+```{r,multi_wind,cache=TRUE, cache.path = 'cache/', fig.path='figure/'}
+#Function to parse dataframe wind data and 
+#create spiral plots based on wind angle and FD_points.
 wind_spiral_plot <-function(df){
   wind_speed_bins = c(-Inf,4,6,8,10,12,Inf) 
   df$bin_wind_speed = cut(df$wind_speed,wind_speed_bins) #Bin wind speeds
   df.wind_speed_groups = split(df,f=df$bin_wind_speed)
   wind_df = data.frame()
-  for(i in 1:length(df.wind_speed_groups)) #Loop through each wind speed dataframe
+  #Loop through each wind speed dataframe
+  for(i in 1:length(df.wind_speed_groups)) 
     {
       wind_dir_groups <- with(df.wind_speed_groups[[i]],
                       cut(wind_dir,c(0,25,50,75,100,125,150,175,
@@ -323,14 +332,14 @@ wind_spiral_plot <-function(df){
 ```
 
 <h3>Batters</h3>
-```{r echo=FALSE, message=FALSE, warning=FALSE, batter_wind}
+```{r echo=FALSE, message=FALSE, warning=FALSE, batter_wind,cache=TRUE, cache.path = 'cache/', fig.path='figure/'}
 wind_spiral_plot(batter_data.OD.decoded)
 ```
 
 There appears to be some effect of wind speed and direction on batters fanduel points that may prove useful as a feature for model development. Some wind speeds seem to have spikes in FD_points in the upper left quadrant, while others show spikes at many angles. More work will need to be done to prove the significant of a relationship, as well a doing a more detailed investigation to analyze the effect of wind for individual ballparks. This will be looked at in the more detailed section of this analysis.
 
 <h3>Pitchers</h3>
-```{r echo=FALSE, message=FALSE, warning=FALSE, pitcher_wind}
+```{r echo=FALSE, message=FALSE, warning=FALSE, pitcher_wind,cache=TRUE, cache.path = 'cache/', fig.path='figure/'}
 wind_spiral_plot(pitcher_data.OD.decoded)
 ```
 
@@ -338,7 +347,7 @@ Pitchers do not seem to be as affected by wind speed and direction as batters, w
 
 <h1>Detailed Plots and Analysis</h1>
 
-Three plots have been identified that warrent further investigation:  
+Three plots have been identified that warrant further investigation:  
 1. Batter FD_points vs SLG to test regression models  
 2. Pitcher FD_points vs WHIP to better identify clustering and trend in the relationship  
 3. Batter wind data spiral plots to better understand the significance and strength of the effect wind has on batter performance  
@@ -348,7 +357,7 @@ Three plots have been identified that warrent further investigation:
 Batter FD_points vs SLG was chosen in the final plots section as it displayed a potentially quadratic or exponential relationship, that if properly defined, could prove useful in building a predictive model.
 
 Code adapted from [Stackoverflow](http://stats.stackexchange.com/questions/64927/how-do-i-plot-an-exponential-curve-in-r)
-```{r,warning=FALSE}
+```{r,warning=FALSE, final_slg,cache=TRUE, cache.path = 'cache/', fig.path='figure/'}
 batter_data.adv_stats_mean.clean = subset(batter_data.adv_stats_mean,
                                           isnumeric(slg_mean) & slg_mean >
                                             0 & slg_mean < 0.7)
@@ -388,10 +397,10 @@ ggplot(result, aes(x = x, y = fitted)) +
 The cleaned up version of batter FD_points vs SLG plot shows that the initial impression of a highly quadratic or exponential relationship may not have been accurate. The R2 for a linear model is nearly identical to that of a quadratic, with an exponential regression being the worst r2 of the models. More advance outlier cleaning techniques may be required during model development.
 
 <h2>Pitcher FD_points vs WHIP</h2>
-Pitcher FD_points vs WHIP was chosen to include in the final plots section, as WHIP is currently the only advanced stat for pitchers in the dataset and showed an interesting distribution in the scatterplot, that if properly classified into clusters could provide useful for grouping pitchers into fanduel point ranges for use in a predicitve model.
+Pitcher FD_points vs WHIP was chosen to include in the final plots section, as WHIP is currently the only advanced stat for pitchers in the dataset and showed an interesting distribution in the scatterplot, that if properly classified into clusters could provide useful for grouping pitchers into fanduel point ranges for use in a predictive model.
 
 Circle function from [Stackoverflow](http://stackoverflow.com/questions/6862742/draw-a-circle-with-ggplot2)
-```{r,warning=FALSE}
+```{r,warning=FALSE,final_whip,cache=TRUE, cache.path = 'cache/', fig.path='figure/'}
 circleFun <- function(center = c(0,0),diameter = 1, npoints = 100){
     r = diameter / 2
     tt <- seq(0,2*pi,length.out = npoints)
@@ -399,7 +408,8 @@ circleFun <- function(center = c(0,0),diameter = 1, npoints = 100){
     yy <- center[2] + r * sin(tt)
     return(data.frame(x = xx, y = yy))
 }
-pitcher_data.adv_stats_mean.clean = subset(pitcher_data.adv_stats_mean,isnumeric(whip_mean) & whip_mean >
+pitcher_data.adv_stats_mean.clean = subset(pitcher_data.adv_stats_mean,
+                                           isnumeric(whip_mean) & whip_mean >
                                              0 & whip_mean <=5)
                                           #clean up NA and outlier values
 dat <- circleFun(c(1.4,1.38),1.6,npoints = 100)
@@ -419,13 +429,17 @@ Cleaning up the pitcher WHIP data for outliers and plotting the results magnifie
 Batter wind effects were chosen for inclusion in the final plots section as some variation in fanduel points vs windspeed and direction were seen in the plots. This advanced relationship could prove to be an edge in predictive models over competing models that not account for the potential wind relationship in predicting batter fanduel points.
 
 Utilizing the wind_spiral_plot function defined earlier and refining:
-```{r}
+```{r fig.align='center', fig.width=10,final_wind,cache=TRUE, cache.path = 'cache/', fig.path='figure/'}
 wind_spiral_plot_formatted <-function(df){
   wind_spiral_plot(df) +
   aes(fill=wind_speed_group_indx) + 
   guides(fill=guide_legend(title="Wind Speed m/s")) + 
   ggtitle("Batter Fanduel points vs Wind speed and Direction") +
-  scale_x_discrete(breaks=c("(75,100]","(150,175]","(275,300]","(325,359]")) +
+  scale_x_discrete(breaks=c("(75,100]","(150,175]","(275,300]",
+                            "(325,359]"),
+                   labels=c("(75,100]"="75","(150,175]"="150",
+                                             "(275,300]"="275",
+                                             "(325,359]"="325")) +
   theme(strip.background = element_blank(),strip.text.x = element_blank()) +
   xlab("") +
   ylab("Fanduel Points")
@@ -433,7 +447,7 @@ wind_spiral_plot_formatted <-function(df){
 wind_spiral_plot_formatted(batter_data.OD.decoded)
 ```
 
-There are some large outliers in FD_points at windspeeds of 2m/s, 10m/s and 12m/s, which may prove useful in a predictive model.Further analysis is needed to explore each ballpark and it may be benificial to normalize the dataset to ballpark homeplate direction, but the inclusion of wind as an advanced parameter in the predictive model may prove to be an advantage of simplier competing models.  
+There are some large outliers in FD_points at windspeeds of 2m/s, 10m/s and 12m/s, which may prove useful in a predictive model.Further analysis is needed to explore each ballpark and it may be beneficial to normalize the dataset to ballpark homeplate direction, but the inclusion of wind as an advanced parameter in the predictive model may prove to be an advantage of simpler competing models.  
 
 <h1>Reflection</h1>
 
